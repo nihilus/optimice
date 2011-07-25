@@ -41,7 +41,7 @@ class TaintInstr:
         #for easier debugging
         self.mnem = None
         
-        self.reg2ereg = {"RAX":"EAX", "AL":"EAX", "AH":"EAX", "AX":"EAX", "EAX":"EAX", "RBX":"EBX", "BL":"EBX", "BH":"EBX", "BX":"EBX", "EBX":"EBX", "RCX":"EAX", "CL":"ECX", "CH":"ECX", "CX":"ECX", "ECX":"ECX", "RDX":"EDX", "DL":"EDX", "DH":"EDX", "DX":"EDX", "EDX":"EDX", "RSI":"ESI", "ESI":"ESI", "SI":"ESI", "RDI":"EDI", "EDI":"EDI", "DI":"EDI", "RBP":"EBP", "EBP":"EBP", "BP":"EBP", "RSP":"ESP", "ESP":"ESP", "SP":"ESP", "ES":"ES", "SS":"SS"}
+        self.reg2ereg = {"RAX":"EAX", "AL":"EAX", "AH":"EAX", "AX":"EAX", "EAX":"EAX", "RBX":"EBX", "BL":"EBX", "BH":"EBX", "BX":"EBX", "EBX":"EBX", "RCX":"EAX", "CL":"ECX", "CH":"ECX", "CX":"ECX", "ECX":"ECX", "RDX":"EDX", "DL":"EDX", "DH":"EDX", "DX":"EDX", "EDX":"EDX", "RSI":"ESI", "ESI":"ESI", "SI":"ESI", "RDI":"EDI", "EDI":"EDI", "DI":"EDI", "RBP":"EBP", "EBP":"EBP", "BP":"EBP", "RSP":"ESP", "ESP":"ESP", "SP":"ESP", "ES":"ES", "SS":"SS", "CS":"CS", "DS":"DS", "FS":"FS", "GS":"GS"}
     
     def GetRegPos(self, reg):
         '''[4rax[3eax[2ax[1ah|0al]]]] | -1'''
@@ -166,7 +166,7 @@ class TaintInstr:
             
         opnd = opnd.upper()
         opnd = re.sub(r"(SHORT|NEAR|FAR|PTR|QWORD|DWORD|WORD|TBYTE|BYTE)", " ", opnd).strip()
-        opnd = re.sub(r"(?:CS|SS|DS|ES(?:\s|:|\+|\-|\*)|FS|GS)", " ", opnd).strip()
+        opnd = re.sub(r"(?:(?:CS|SS|DS|ES|FS|GS)(?:\s|:|\+|\-|\*))", " ", opnd).strip()
         opnd = opnd.replace(":"," ").replace("["," ").replace("]"," ").replace("+"," ")
         
         opnd = re.sub(r"\s+", " ", opnd).strip()

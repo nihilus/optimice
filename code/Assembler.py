@@ -95,6 +95,8 @@ class Assemble:
         self.nasm_path = ""
         self.opty_dir = None
         self.functions = {}
+        self.jmp_table = ""
+        self.jmp_table_refs = []
         
         self.AllocateCodeSegment()
 
@@ -222,7 +224,25 @@ Nasm output:
         idc.MakeCode(write_ea)
         
         fp = open("%s\\f_%08x.lst" % (dir, function_ea), "r")
-        for line in fp:
+        asm_lst = fp.read()
+        
+        base_addr = re.search(r"ORG ([\dABCDEF]{8})H", asm_lst).group(1)
+        base_addr = int(base_addr, 16)
+        
+        for jt in self.jmp_table_refs:
+            m = re.search(r"\s*\d+\s+([\dABCDEF]{8}).*?%s" % re.escape(jt), asm_lst, re.IGNORECASE)
+            if m != None:
+                jt_ea = int(m.group(1), 16)
+                jt_str = re.search(r"SJ_.{8}", jt, re.IGNORECASE).group()
+                for m in re.findall(r"(?i)\n\s*\d+\s+[\dABCDEF]{8}\s+.*?\s+%s" % re.escape(jt_str), asm_lst):
+                    r = re.search(r"\d+\s([\dABCDEF]{8})", m.strip(), re.IGNORECASE).group(1)
+                    
+                    #print "AddCodeXref(0x%08x, 0x%08x, idc.XREF_USER)" % (jt_ea+base_addr, idc.Dword(int(r, 16)+base_addr))
+                    idc.AddCodeXref(jt_ea+base_addr, idc.Dword(int(r, 16)+base_addr), idc.XREF_USER)
+            else:
+                raise MiscError
+        
+        for line in asm_lst.split("\n"):
             comment = re.search(r"###(.*?)###", line)
             if comment != None:
                 data = re.search(r"\s*\d+\s([\dABCDEF]+)\s([\dABCDEF\(\)]+)", line)
@@ -245,7 +265,7 @@ Nasm output:
             
             seg_size = 0
             while seg_size == 0:
-                seg_size = idc.AskAddr(0x9000, "Enter size of new code segment")
+                seg_size = idc.AskAddr(0x10000, "Enter size of new code segment")
             
             if idc.SegCreate(seg_start, seg_start+seg_size, 0, 1, 0, 0) != 0:
                 break
@@ -279,7 +299,7 @@ Nasm output:
                 mnem = instr.GetMnem(1) + ' '
         
         refs = list(function.GetRefsFrom(instr.GetOriginEA()))
-        if len(refs) > 1:
+        if len(refs) > 1 and instr.GetMnem() != "jmp":
             key = refs[0][0] if refs[0][1] else refs[1][0]
             
             if self.nasm:
@@ -338,7 +358,23 @@ Nasm output:
                     else:
                         self.NasmWriteToFile("\tjmp %s" % instr.GetOpnd(1), instr)
                 else:
-                    self.NasmWriteToFile("\tjmp L%08x" % tref_from, instr)
+                    if len(refs) > 1:
+                        instr_string = "jmp %s" % instr.GetOpnd(1).replace("SUBS", "sj_%08x_1" % instr.GetOriginEA())
+                        self.NasmWriteToFile("\t%s\n" % instr_string )
+                        
+                        self.jmp_table_refs.append(instr_string)
+                        
+                        self.jmp_table += "\n"
+                        #self.NasmWriteToFile("\tsj_%08x " % instr.GetOriginEA())
+                        
+                        counter = 1
+                        name = 'sj_%08x' % instr.GetOriginEA()
+                        for ref in refs:
+                            #self.NasmWriteToFile("%s_%d dd L%08x\n" % (name, counter, ref[0]))
+                            self.jmp_table += "%s_%d dd L%08x\n" % (name, counter, ref[0])
+                            counter += 1
+                    else:
+                        self.NasmWriteToFile("\tjmp L%08x" % tref_from, instr)
                     
                 return None
             
@@ -538,6 +574,8 @@ Nasm output:
         
         idc.Batch(1)
         
+        self.jmp_table = ""
+        self.jmp_table_refs = []
         self.jmp_deps = {}
         self.ref_instr = {}
         self.bb_head_ea = {}
@@ -617,6 +655,8 @@ Nasm output:
         
         ret = None
         if self.nasm:
+            self.NasmWriteToFile(self.jmp_table)
+            
             self.nasmfw.close()
             self.nasmfw = None
             

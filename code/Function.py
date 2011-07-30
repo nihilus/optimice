@@ -388,6 +388,7 @@ class Function:
                     refs_from = list(self.GetRefsFrom(last_ea))
                     
                     if len(refs_from) != 1:
+                        return False
                         raise MiscError
                     
                     refs_to = list(self.GetRefsTo(refs_from[0][0]))
@@ -407,7 +408,8 @@ class Function:
                 break
             
         #self.CleanUp()
-        return
+        
+        return True
 
 
     def startAnalysis(self, startEA):
@@ -663,9 +665,8 @@ class Function:
             if debug:
                 print ">Function:_fillInstructionData - JMP @ [%08x]" % ea
             
-            if len(refs) == 0 or idc.GetOpType(ea, 0) == 2:
+            if len(refs) == 0:
                 #NOTE: special case, ref is unresolvable (eg. jmp eax)
-                
                 create_new_bb = 1
                 
                 #Fill CFG info
@@ -673,7 +674,32 @@ class Function:
                 self.AddRefsFrom(ea, None, True)
                 
                 #raise RefResolver
-
+                
+            elif len(refs) > 1 and idc.GetOpType(ea, 0) == 2:
+                #NOTE: switch jump
+                expr = idc.GetOpnd(ea, 0)
+                m = re.search(r'(\[.*?\])', expr)
+                if m != None:
+                    expr = m.group()
+                    m2 = re.match(r'\[.*?\*.*?\+(.*?)\]', expr)
+                    if m2 != None:
+                        expr = re.sub(m2.group(1), "SUBS", expr)
+                        instr.SetOpnd(expr, 1)
+                        
+                        self.addr_todo.extend(refs[::-1])
+                        refs_appended += len(refs)
+                        create_new_bb = 1
+                        
+                        #add first ref as a "default" jmp
+                        for ref in refs:
+                            self.AddRefsTo(ref, ea, True)
+                            self.AddRefsFrom(ea, ref, True)
+                        
+                    else:
+                        raise MiscError
+                else:
+                    raise MiscError
+                
             else:
                 self.addr_todo.append(refs[0])
                 refs_appended += 1

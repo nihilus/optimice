@@ -510,12 +510,13 @@ class Instruction:
                                             print ">BlockTainting:CalculateInstructionTaint - \tsrc->", ins['passive'], ins['type'], ins['value'], ins['opnd']
                                             #print self.GetOpnd(op_counter),"\t#src->", operand
                                     else:
-                                        print ">BlockTainting:CalculateInstructionTaint - GetOpnd", self.GetOpnd(op_counter, 1)
-                                        print ">BlockTainting:CalculateInstructionTaint - GetOpndType", self.GetOpndType(op_counter)
-                                        print ">BlockTainting:CalculateInstructionTaint - GetMnem", self.GetMnem()
-                                        print ">BlockTainting:CalculateInstructionTaint - WARRNING: Operand HIDDEN!", "op_counter[%d] @ [%08x]" % (op_counter, self.GetOriginEA())
                                         if mnem != "IMUL":
+                                            print ">BlockTainting:CalculateInstructionTaint - GetOpnd", self.GetOpnd(op_counter, 1)
+                                            print ">BlockTainting:CalculateInstructionTaint - GetOpndType", self.GetOpndType(op_counter)
+                                            print ">BlockTainting:CalculateInstructionTaint - GetMnem", self.GetMnem()
+                                            print ">BlockTainting:CalculateInstructionTaint - WARRNING: Operand HIDDEN!", "op_counter[%d] @ [%08x]" % (op_counter, self.GetOriginEA())
                                             raise MiscError
+                                        
                                 else:
                                     print ">BlockTainting:CalculateInstructionTaint - ERROR"
                                     raise MiscError

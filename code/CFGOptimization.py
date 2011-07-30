@@ -67,15 +67,17 @@ class ReduceJMP:
                     
                     if debug:
                         print ">ReduceJMP:Reduce - RefsFrom:", refs_from
-
                     
-                    if len(refs_from) == 0 or refs_from[0][0] == None:
+                    if len(refs_from) == 0 or refs_from[0][0] == None or len(refs_from) > 1:
                         #this is a case for jmp reg
                         continue
-
-                    if len(refs_from) > 1:
-                        #assert rule
-                        raise MiscError
+                    elif len(list(self.function.GetRefsTo(instr.GetOriginEA()))) > 1:
+                        #this is a case of switch jump
+                        continue
+                    elif len(list(self.function.GetRefsTo(instr.GetOriginEA()))) == 1:
+                        parent = list(self.function.GetRefsTo(instr.GetOriginEA()))[0][0]
+                        if len(list(self.function.GetRefsFrom(parent))) > 1:
+                            continue
                     
                     refs_to = list(self.function.GetRefsTo(refs_from[0][0]))
                     
@@ -91,12 +93,10 @@ class ReduceJMP:
                         #    #assert
                         #    raise MiscError
                         
-                        changed = True
                         #Update CFG; remove jmp instruction, update references,
                         #merge BB's and update BB table
-                        self.function.RemoveInstruction(instr.GetOriginEA(), bb_ea)
-                        
-                        modified = True
+                        modified = self.function.RemoveInstruction(instr.GetOriginEA(), bb_ea)
+                        changed = modified
                         
                 elif not instr.IsCFI():
                     if debug:
@@ -112,6 +112,14 @@ class ReduceJMP:
                         print "@ %08x" % instr.GetOriginEA(), refs_from
                         raise MiscError
                     
+                    if len(list(self.function.GetRefsTo(instr.GetOriginEA()))) > 1:
+                        #this is a case of switch jump
+                        continue
+                    elif len(list(self.function.GetRefsTo(instr.GetOriginEA()))) == 1:
+                        parent = list(self.function.GetRefsTo(instr.GetOriginEA()))[0][0]
+                        if len(list(self.function.GetRefsFrom(parent))) > 1:
+                            continue
+                    
                     refs_to = list(self.function.GetRefsTo(refs_from[0][0]))
                     
                     if debug:
@@ -119,7 +127,7 @@ class ReduceJMP:
                     
                     if len(refs_to) == 1 and refs_from[0][0] != self.function.start_ea:
                         if debug:
-                            print ">ReduceJMP:Reduce - Found jmp to be removed @ [%08x]" % instr.GetOriginEA()
+                            print ">ReduceJMP:Reduce - Found block to be merged @ [%08x]" % instr.GetOriginEA()
                             print ">ReduceJMP:Reduce - Orig[%08x] RefTo[%08x] RefFrom[%08x]" % (instr.GetOriginEA(), refs_to[0][0] if refs_to[0][0] != None else -1, refs_from[0][0] if refs_from[0][0] != None else -1 )   
                         
                         self.function.basic_blocks[bb_ea].extend(self.function.basic_blocks[refs_from[0][0]][:])

@@ -10,6 +10,7 @@ import CodeOptimization
 import GUI_FunctionManager
 
 import pickle
+import traceback
 
 def optimice():
     ea = idc.ScreenEA()
@@ -58,12 +59,29 @@ def optimice():
     
     print "Optimization ended!"
     
+def wrapper():
+    try:
+        optimice()
+    except:
+        print "-------------"
+        traceback.print_exc()
+        print "-------------"
+        idc.Warning("---Please send the error message from the output window to: gljiva@gmail.com---")
 
-def setHotkey():
-    idaapi.CompileLine('static key_ALTN() { RunPythonStatement("optimice()"); }')
+def setHotkey():    
+    err = idaapi.CompileLine(r"""
+    static key_ALTN()
+    {
+      RunPythonStatement("wrapper()");
+    }
+    """)
     
-    # Add the hotkey
-    AddHotkey("ALT-N", 'key_ALTN')
+    if err:
+        print "Error compiling IDC code: %s" % err
+        return 
+    else:
+        # Add the hotkey
+        AddHotkey("ALT-N", 'key_ALTN')
     
     print "Optimice v0.13 initialized"
     print "To optimize use ALT+N hotkey and position cursor at the beginning of code!"

@@ -588,6 +588,7 @@ class Function:
         instr.SetOpnd(idc.GetOpnd(ea, 0), 1)
         instr.SetOpndType(idc.GetOpType(ea, 0), 1)
         instr.SetOpndValue(idc.GetOperandValue(ea, 0), 1)
+        instr.SetComment(idc.Comment(ea))
         
         #what to add to addr_todo
         if mnem == 'call':

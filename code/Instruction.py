@@ -83,6 +83,10 @@ class Instruction:
         return self.taint
 
     def PopulateInfoFromDisasm(self):
+        #NOTE: (Set/Get)Opnd(1,1) CAN be used insead of (Set/Get)Opnd(2,1) when first operand is empty
+        # that is the case for FSTP instruction (and like) where IDA skips first argument and populates
+        # only second. This should be handeled explicitly so we dont break tainting.
+        
         disas = self.GetDisasm().upper().strip()
         disas = re.sub(r";.*","", disas, 1).strip()
         prefix = re.match(r"((?:LOCK |REPNE |REPNZ |REP |REPE |REPZ |CS(?:\s|:)|SS(?:\s|:)|DS(?:\s|:)|ES(?:\s|:)|FS(?:\s|:)|GS(?:\s|:))*)", disas).group()
@@ -244,6 +248,8 @@ class Instruction:
             return None
 
     def SetOpnd(self, op, opnr, type=0):
+        op = re.sub(r"(^|\s)ST($|\s)", "ST0", op.upper())
+        
         op_name = 'op%d' % opnr
         if type == 0:
             if op != '':
@@ -267,7 +273,7 @@ class Instruction:
                 return self.t_op[op_name]
             else:
                 return None
-        
+    
     def SetOpndType(self, op_type, opnr):
         op_name = 'op%d_type' % opnr
         self.instr[op_name] = op_type
@@ -280,7 +286,31 @@ class Instruction:
             return self.instr[op_name]
         else:
             return None
+    
+    def GetOpndPrefixSize(self, opnr):
+        op = self.GetOpndPrefix(opnr)
+        if op != None:
+            op = op.upper()
+            if op == "BYTE":
+                return 1
+            elif op == "DWORD":
+                return 4
+            elif op == "WORD":
+                return 2
+            elif op == "QWORD":
+                return 8
+            elif op == "TBYTE":
+                return 10
+            else:
+                print "Unknown SIZE = [%s]!" % op
+                return None
+        else:
+            return None
         
+    def StripOpndPrefix(self, opnd):
+        clean = re.sub(r"\s*([A-Z]+)\s+PTR\s*", " ", opnd.upper())
+        return clean
+    
     def GetOpndPrefix(self, opnr):
         #NOTE: SHOULD DEFINE EXACTLY WHAT IS THIS SUPPOSED TO RETURN
         disas = self.GetDisasm().upper()
@@ -360,6 +390,8 @@ class Instruction:
             prefix = "dword"
         elif size == 8:
             prefix = "qword"
+        elif size == 10:
+            prefix = "tword"
         else:
             prefix = ""
         

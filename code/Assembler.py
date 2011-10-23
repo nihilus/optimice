@@ -115,7 +115,6 @@ class Assemble:
         print ">Assembler:SaveState - File [%s] saved" % (save_fname)
     
     def NasmWriteToFile(self, string, instr=None):
-        
         string = string.upper()
         
         string = re.sub(r"DS:DBL_([\dABCDEF]+)", r"QWORD [DS:0\1h]", string)
@@ -408,9 +407,14 @@ Nasm output:
                 self.free_ea += 6
                 return None
         
+        #regular (non CFG) instruction
         if instr.GetOpnd(1) != None and instr.GetOpnd(1) != '':
-            if instr.GetOpndType(1) == 2 and re.search(r"\*+", instr.GetOpnd(1)) == None:
+            if instr.GetOpndType(1) == 2 and re.search(r"\*.*?\+", instr.GetOpnd(1)) == None:
                 op_size = idaapi.get_item_size(instr.GetOpndValue(1))
+                
+                op_pref_size = instr.GetOpndPrefixSize(1)
+                if op_pref_size != None:
+                    op_size = op_pref_size
                 
                 op_size_2 = 0
                 if instr.GetOpndType(2) == 1:
@@ -430,7 +434,12 @@ Nasm output:
                 if instr.GetOpndType(2) == 2 and re.search(r"\*+", instr.GetOpnd(2)) == None:
                     op_disas = instr.GetOpnd(2)
                     op_size = idaapi.get_item_size(instr.GetOpndValue(2))
-
+                    
+                    op_pref_size = instr.GetOpndPrefixSize(1)
+                    if op_pref_size != None:
+                        op_size = op_pref_size
+                        
+                    
                     op_size_2 = 0
                     if instr.GetOpndType(1) == 1:
                         op_size_2 = instr.GetRegSize(instr.GetOpnd(1))
@@ -454,6 +463,10 @@ Nasm output:
                 op_disas = instr.GetOpnd(2)
                 op_size = idaapi.get_item_size(instr.GetOpndValue(2))
                 
+                op_pref_size = instr.GetOpndPrefixSize(2)
+                if op_pref_size != None:
+                    op_size = op_pref_size
+                
                 op_size_2 = 0
                 if instr.GetOpndType(1) == 1:
                     op_size_2 = instr.GetRegSize(instr.GetOpnd(1))
@@ -464,6 +477,16 @@ Nasm output:
                     opnd = '%s [0x%08x]' % (instr.BytesToPrefix(op_size_2), instr.GetOpndValue(2))
                 
                 mnem += opnd
+            
+            elif instr.GetOpndType(2) == 3 and instr.GetMnem().upper()[:2] == "FS":
+                #this is a special case to handle FS* fp instructions that have 1st argument hidden in IDA
+                #and to handle the difference in masm vs nasm (tbyte bs tword).
+                
+                #NOTE: GetOpnd(1,1) is used because the first argument is empty when it gets populated
+                # by the taint function, so original operand is in GetOpnd(2,0) and cleand (no prefix)
+                # operand is in GetOpnd(1,1)
+                opnd = '%s %s' % (instr.BytesToPrefix(instr.GetOpndPrefixSize(1)), instr.StripOpndPrefix(instr.GetOpnd(2)))
+                mnem += ' ' + opnd
                 
             else:
                 mnem += ' ' + instr.GetOpnd(2)

@@ -248,7 +248,8 @@ class Instruction:
             return None
 
     def SetOpnd(self, op, opnr, type=0):
-        op = re.sub(r"(^|\s)ST($|\s)", "ST0", op.upper())
+        if op != None:
+            op = re.sub(r"(^|\s)ST($|\s)", "ST0", op.upper())
         
         op_name = 'op%d' % opnr
         if type == 0:

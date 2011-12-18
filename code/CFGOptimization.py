@@ -61,7 +61,7 @@ class ReduceJMP:
 
                 if instr.IsJmp():
                     if debug:
-                        print ">ReduceJMP:Reduce1 - JMP@[%08x] BB[%08x] Mnem[%s]"  % (instr.GetOriginEA(), bb_ea, instr.GetMnem())
+                        print ">ReduceJMP:Reduce1 - JMP@[%08x] BB[%08x] Disas[%s]"  % (instr.GetOriginEA(), bb_ea, instr.GetDisasm())
                         
                     refs_from = list(self.function.GetRefsFrom(instr.GetOriginEA()))
                     
@@ -71,9 +71,11 @@ class ReduceJMP:
                     if len(refs_from) == 0 or refs_from[0][0] == None or len(refs_from) > 1:
                         #this is a case for jmp reg
                         continue
+                    
                     elif len(list(self.function.GetRefsTo(instr.GetOriginEA()))) > 1:
                         #this is a case of switch jump
                         continue
+                    
                     elif len(list(self.function.GetRefsTo(instr.GetOriginEA()))) == 1:
                         parent = list(self.function.GetRefsTo(instr.GetOriginEA()))[0][0]
                         if len(list(self.function.GetRefsFrom(parent))) > 1:
@@ -96,7 +98,8 @@ class ReduceJMP:
                         #Update CFG; remove jmp instruction, update references,
                         #merge BB's and update BB table
                         modified = self.function.RemoveInstruction(instr.GetOriginEA(), bb_ea)
-                        changed = modified
+                        changed = True
+                        modified = True
                         
                 elif not instr.IsCFI():
                     if debug:
@@ -213,11 +216,10 @@ class ReduceJMP:
                         if match != None:
                             ff.remove(flag)
                             match = match.group()
+                            branch = branch and (match == flag)
                             
                             if debug:
-                                print ">ReduceJMP:JccReduceBlock - ", branch, match, flag, '[%08x]' % taint.GetOriginEA()
-                                
-                            branch = branch and (match == flag)
+                                print ">ReduceJMP:JccReduceBlock - Found target flag: jcc[%s] match[%s] flag[%s] instr@[%08x]" % (branch, match, flag, taint.GetOriginEA())
                                 
                     find_flags = ff
                     
@@ -229,7 +231,7 @@ class ReduceJMP:
                     
                     self.function.RemoveJccPath(last_ins.GetOriginEA(), not branch)
                     last_ins.SetMnem("jmp")
-                    last_ins.SetOpcode("\eb\ef")
+                    last_ins.SetOpcode("\xeb\xef")
                     last_ins.SetDisasm('jmp 0xdeadbeef')
                     
                     return True
@@ -285,9 +287,11 @@ class ReduceJMP:
             
             refs = list( self.function.GetRefsFrom(last_ins.GetOriginEA()) )
             if len(refs) == 1:
-                last_ins.SetMnem('jmp')
-                last_ins.SetOpcode('\xeb\xef')
-                last_ins.SetDisasm('jmp 0xdeadbeef')
+                
+                last_ins.SetMnem("NOP")
+                last_ins.SetOpcode('\x90')
+                last_ins.SetOpnd(None, 1)
+                last_ins.SetOpnd(None, 2)
                 
                 return True
             
@@ -307,15 +311,16 @@ class ReduceJMP:
             if len(find_flags) < 1:
                 raise MiscError
             
-            if debug:
-                print ">ReduceJMP:JccReduceComplementaryBlock - Found JCC block @ [%08x] @ [%08x]" % (bb[0].GetOriginEA(), last_ins.GetOriginEA())
-                print ">ReduceJMP:JccReduceComplementaryBlock - [%s] Looking for: [%s] " % (last_ins.GetMnem(), check_flags)
-            
             false_path = refs[1][0] if refs[0][1] else refs[0][0]
             true_path = refs[1][0] if refs[1][1] else refs[0][0]
             
             false_bb = list(self.function.GetBBInstructions(false_path))
             
+            if debug:
+                print ">ReduceJMP:JccReduceComplementaryBlock - Found JCC block @ [%08x] @ [%08x]" % (bb[0].GetOriginEA(), last_ins.GetOriginEA())
+                print ">ReduceJMP:JccReduceComplementaryBlock - [%s] Looking for: [%s] " % (last_ins.GetMnem(), check_flags)
+                print ">ReduceJMP:JccReduceComplementaryBlock - False path [%08x] true path [%08x]" % (false_path, true_path)
+                
             if false_bb[0].IsJcc():
                 jcc2_mnem = false_bb[0].GetMnem().lower()
                 
@@ -327,13 +332,15 @@ class ReduceJMP:
                     if true_path2 == true_path:
                         #we should replace previous jcc with jmp
                         self.function.RemoveJccPath(last_ins.GetOriginEA(), False)
-                        last_ins.SetMnem('jmp')
-                        last_ins.SetOpcode('\xeb\xef')
-                        last_ins.SetDisasm('jmp 0xdeadbeef')
+                        
+                        last_ins.SetMnem("NOP")
+                        last_ins.SetOpcode('\x90')
+                        last_ins.SetOpnd(None, 1)
+                        last_ins.SetOpnd(None, 2)
                         modified = True
                         
                         if debug:
-                            print ">ReduceJMP:JccReduceComplementaryBlock - Replaced JCC @ [%08x] with JMP" % (last_ins.GetOriginEA())
+                            print ">ReduceJMP:JccReduceComplementaryBlock - Case#1 - Replaced JCC @ [%08x] with JMP true_path2[%08x]==true_path[%08x]" % (last_ins.GetOriginEA(), true_path2, true_path)
             
             fpath_instr = false_bb[-1]
             if not modified and fpath_instr.IsJcc(): #check false path for optimization
@@ -368,25 +375,31 @@ class ReduceJMP:
                         if jcc_synonym.has_key(jcc1_mnem) and (jcc2_mnem in jcc_synonym[jcc1_mnem]):
                             #this means that they depend on same flags
                             #we are in False branch so this jcc will be also False
-                            self.function.RemoveJccPath(fpath_instr.GetOriginEA(), False)
-                            fpath_instr.SetMnem('jmp')
-                            fpath_instr.SetOpcode('\xeb\xef')
-                            fpath_instr.SetDisasm('jmp 0xdeadbeef')
+                            self.function.RemoveJccPath(fpath_instr.GetOriginEA(), True)
+                            
+                            fpath_instr.SetMnem("NOP")
+                            fpath_instr.SetOpcode('\x90')
+                            fpath_instr.SetOpnd(None, 1)
+                            fpath_instr.SetOpnd(None, 2)
+                            
                             modified = True
                             
                             if debug:
-                                print ">ReduceJMP:JccReduceComplementaryBlock - Replaced JCC @ [%08x] with JMP" % (fpath_instr.GetOriginEA())
+                                print ">ReduceJMP:JccReduceComplementaryBlock - Case#2 - Replaced JCC @ [%08x] with JMP [Removed true path]" % (fpath_instr.GetOriginEA())
                                 
                         elif jcc2_mnem in jcc_map[jcc1_mnem]:
                             #this means that they depend on opposite flags
                             #we are in False branch so this jcc will be True
-                            self.function.RemoveJccPath(fpath_instr.GetOriginEA(), True)
-                            fpath_instr.SetMnem('jmp')
-                            fpath_instr.SetOpcode('\xeb\xef')
-                            fpath_instr.SetDisasm('jmp 0xdeadbeef')
+                            self.function.RemoveJccPath(fpath_instr.GetOriginEA(), False)
+                            
+                            fpath_instr.SetMnem("NOP")
+                            fpath_instr.SetOpcode('\x90')
+                            fpath_instr.SetOpnd(None, 1)
+                            fpath_instr.SetOpnd(None, 2)
+                            
                             modified = True
                             
                             if debug:
-                                print ">ReduceJMP:JccReduceComplementaryBlock - Replaced JCC @ [%08x] with JMP" % (fpath_instr.GetOriginEA())
+                                print ">ReduceJMP:JccReduceComplementaryBlock - Case#3 - Replaced JCC @ [%08x] with JMP [Removed false path]" % (fpath_instr.GetOriginEA())
                     
         return modified

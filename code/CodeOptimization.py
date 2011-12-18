@@ -287,7 +287,7 @@ class PeepHole:
                 instr = bb[offset]
                 if instr.GetOpnd(1) == instr.GetOpnd(2):
                     if debug:
-                        print "Removing SYMETRIC @ [%08x] [%s] [%s %s]" % (instr.GetOriginEA(), instr.GetMnem(), instr.GetOpnd(1), instr.GetOpnd(2))
+                        print ">PeepHole:SymetricNOP - Removing SYMETRIC @ [%08x] [%s] [%s %s]" % (instr.GetOriginEA(), instr.GetMnem(), instr.GetOpnd(1), instr.GetOpnd(2))
                     
                     instr.SetDisasm("NOP")
                     
@@ -299,6 +299,47 @@ class PeepHole:
                 
         return modified
 
+    def Shifts(self, bb):
+        if type(bb).__name__ == "generator":
+            bb = list(bb)
+            
+        if len(bb) < 1:
+            return False
+        
+        bb_len = len(bb)
+        to_remove = []
+        
+        modified = False
+        
+        for offset in xrange(0, bb_len-1):
+            mnem = bb[offset].GetMnem().lower()
+            if mnem in ["shr", "shl", "sar", "sal"]:
+                instr = bb[offset]
+                if instr.GetOpndType(2) == 5:
+                    shift = instr.GetOpndValue(2)
+                    real_shift = shift & 0x1f
+                    
+                    if real_shift == 0:
+                        if debug:
+                            print ">PeepHole:Shifts - Removing nop shift instr @ [%08x] [%s] [%s %s]" % (instr.GetOriginEA(), instr.GetMnem(), instr.GetOpnd(1), instr.GetOpnd(2))
+                    
+                        instr.SetDisasm("NOP")
+                    
+                        instr.SetMnem("NOP")
+                        instr.SetOpcode('\x90')
+                        instr.SetOpnd(None, 1)
+                        instr.SetOpnd(None, 2)
+                        modified = True
+                        
+                    elif real_shift != shift:
+                        if debug:
+                            print ">PeepHole:Shifts - Modifying shift argument instr @ [%08x] [%s] [%s %s] -> [%s %s]" % (instr.GetOriginEA(), instr.GetMnem(), instr.GetOpnd(1), instr.GetOpnd(2), instr.GetOpnd(1), hex(real_shift))
+                        
+                        instr.SetOpnd(hex(real_shift), 2)
+                        instr.SetOpndValue(real_shift, 2)
+                        modified = True
+                
+        return modified
 
     def PUSHPOP(self, bb):
         if type(bb).__name__ == "generator":
@@ -318,7 +359,7 @@ class PeepHole:
                 
                 if bb[offset+1].GetMnem() == "pop":
                     if debug:
-                        print "Removing PUSHPOP @ [%08x] [%s]" % (bb[offset].GetOriginEA(), bb[offset].GetMnem())
+                        print ">PeepHole:PUSHPOP - Removing PUSHPOP @ [%08x] [%s]" % (bb[offset].GetOriginEA(), bb[offset].GetMnem())
                     
                     pop = bb[offset+1]
                     
@@ -346,7 +387,7 @@ class PeepHole:
                     for ins in bb[offset+1:]:
                         if ins.GetMnem() == "pop":
                             if debug:
-                                print "Removing PUSHPOP @ [%08x] [%s]" % (bb[offset].GetOriginEA(), bb[offset].GetMnem())
+                                print ">PeepHole:PUSHPOP - Removing PUSHPOP @ [%08x] [%s]" % (bb[offset].GetOriginEA(), bb[offset].GetMnem())
                             
                             pop = ins
                             
@@ -380,9 +421,9 @@ class PeepHole:
                                 reg = taint.GetExOpndRegisters(op['opnd'])
                                 if len(reg) != 1:
                                     if debug and debug_detailed:
-                                        print ">DeadCodeElimination:ReduceBB - !GetExOpndRegisters returned suspicious data"
-                                        print ">DeadCodeElimination:ReduceBB - ", op['opnd']
-                                        print ">DeadCodeElimination:ReduceBB - ", reg
+                                        print ">PeepHole:PUSHPOP - !GetExOpndRegisters returned suspicious data"
+                                        print ">PeepHole:PUSHPOP - ", op['opnd']
+                                        print ">PeepHole:PUSHPOP - ", reg
                                         skip_this = 1
                                         break
                                 
@@ -408,9 +449,9 @@ class PeepHole:
                                 reg = taint.GetExOpndRegisters(op['opnd'])
                                 if len(reg) != 1:
                                     if debug and debug_detailed:
-                                        print ">DeadCodeElimination:ReduceBB - !GetExOpndRegisters returned suspicious data"
-                                        print ">DeadCodeElimination:ReduceBB - ", op['opnd']
-                                        print ">DeadCodeElimination:ReduceBB - ", reg
+                                        print ">PeepHole:PUSHPOP - !GetExOpndRegisters returned suspicious data"
+                                        print ">PeepHole:PUSHPOP - ", op['opnd']
+                                        print ">PeepHole:PUSHPOP - ", reg
                                         skip_this = 1
                                         break
                                 
@@ -434,7 +475,7 @@ class PeepHole:
             return False
         
     def ReduceBB(self, bb):
-        optimization_order = ['PUSHPOP', 'RET2JMP', 'SymetricNOP']
+        optimization_order = ['PUSHPOP', 'RET2JMP', 'SymetricNOP', 'Shifts']
         #optimization_order = ['RET2JMP']
         
         modified = False

@@ -83,7 +83,7 @@ def setHotkey():
         # Add the hotkey
         AddHotkey("ALT-N", 'key_ALTN')
     
-    print "Optimice v0.13 initialized"
+    print "Optimice v0.14 initialized"
     print "To optimize use ALT+N hotkey and position cursor at the beginning of code!"
     
     #Remove it with

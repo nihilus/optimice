@@ -473,9 +473,138 @@ class PeepHole:
             return True
         else:
             return False
+
+    def SymetricXCHG(self, bb):
+        if type(bb).__name__ == "generator":
+            bb = list(bb)
+            
+        if len(bb) < 1:
+            return False
         
+        bb_len = len(bb)
+        to_remove = []
+        
+        modified = 0
+        
+        for offset in xrange(0, bb_len-1):
+            mnem = bb[offset].GetMnem().lower()
+            if mnem == "xchg":
+                xchg = bb[offset]
+                if (xchg.GetOpndType(1) != 1) or (xchg.GetOpndType(2) != 1):
+                    continue
+                
+                next_symetric = 0
+                if bb[offset+1].GetMnem() == "xchg":
+                    xchg2 = bb[offset+1]
+                    if ( (xchg2.GetOpnd(1) == xchg.GetOpnd(1)) and (xchg2.GetOpnd(2) == xchg.GetOpnd(2)) ) or ( (xchg2.GetOpnd(1) == xchg.GetOpnd(2)) and (xchg2.GetOpnd(2) == xchg.GetOpnd(1)) ):
+                        
+                        if debug:
+                            print ">PeepHole:SymetricXCHG - Removing PUSHPOP @ [%08x] [%s]" % (bb[offset].GetOriginEA(), bb[offset].GetMnem())
+                        
+                        to_remove.append(xchg.GetOriginEA())
+                        
+                        instr = xchg
+                        instr.SetDisasm("NOP")
+                        instr.SetMnem("NOP")
+                        instr.SetOpcode('\x90')
+                        instr.SetOpnd(None, 1)
+                        instr.SetOpnd(None, 2)
+                        
+                        instr = xchg2
+                        instr.SetDisasm("NOP")
+                        instr.SetMnem("NOP")
+                        instr.SetOpcode('\x90')
+                        instr.SetOpnd(None, 1)
+                        instr.SetOpnd(None, 2)
+                        
+                        modified = True
+                        next_symetric = 1
+                
+                if next_symetric == 0:
+                    regs_to_check = {}
+                    
+                    xchg_taint = xchg.GetTaintInfo()
+                    reg = xchg_taint.GetExOpndRegisters(xchg.GetOpnd(1))
+                    
+                    if len(reg[0][0]) == 0:
+                        print ">PeepHole:SymetricXCHG - Got register len 0 [%s] [%08x]" % (xchg.GetDisasm(), xchg.GetOriginEA())
+                        raise MiscError
+                    
+                    regs_to_check[reg[0][0]] = ''
+                            
+                    reg = xchg_taint.GetExOpndRegisters(xchg.GetOpnd(2))
+                    
+                    if len(reg[0][0]) == 0:
+                        print ">PeepHole:SymetricXCHG - Got register len 0 [%s] [%08x]" % (xchg.GetDisasm(), xchg.GetOriginEA())
+                        raise MiscError
+                    
+                    regs_to_check[reg[0][0]] = ''
+                    
+                    for ins in bb[offset+1:]:
+                        if ins.GetMnem() == "xchg":
+                            xchg2 = ins
+                            if ( (xchg2.GetOpnd(1) == xchg.GetOpnd(1)) and (xchg2.GetOpnd(2) == xchg.GetOpnd(2)) ) or ( (xchg2.GetOpnd(1) == xchg.GetOpnd(2)) and (xchg2.GetOpnd(2) == xchg.GetOpnd(1)) ):
+                                if debug:
+                                    print ">PeepHole:SymetricXCHG - Removing PUSHPOP @ [%08x] [%s]" % (bb[offset].GetOriginEA(), bb[offset].GetMnem())
+                                
+                                instr = xchg
+                                instr.SetDisasm("NOP")
+                                instr.SetMnem("NOP")
+                                instr.SetOpcode('\x90')
+                                instr.SetOpnd(None, 1)
+                                instr.SetOpnd(None, 2)
+                                
+                                instr = xchg2
+                                instr.SetDisasm("NOP")
+                                instr.SetMnem("NOP")
+                                instr.SetOpcode('\x90')
+                                instr.SetOpnd(None, 1)
+                                instr.SetOpnd(None, 2)
+                                
+                                modified = True
+                                
+                                break
+                        
+                        taint = ins.GetTaintInfo()
+                        
+                        skip_this = 0
+                        for op in taint.GetDstTaints():
+                            if op['type'] == 1:
+                                regs = taint.GetExOpndRegisters(op['opnd'])
+                                
+                                for reg in regs:
+                                    if regs_to_check.has_key(reg[0]):
+                                        if debug and debug_detailed:
+                                            print ">PeepHole:SymetricXCHG - FOUND DSTtaint: Breaking optimization for previous XCHG instruction", reg
+                                        skip_this = 1                                
+                                
+                        if skip_this == 1:
+                            break
+                            
+                        for op in taint.GetSrcTaints():
+                            if op['type'] == 1:
+                                reg = taint.GetExOpndRegisters(op['opnd'])
+                                
+                                for reg in regs:
+                                    if regs_to_check.has_key(reg[0]):
+                                        if debug and debug_detailed:
+                                            print ">PeepHole:SymetricXCHG - FOUND SRCtaint: Breaking optimization for previous XCHG instruction", reg
+                                        skip_this = 1  
+                                
+                        if skip_this == 1:
+                            break
+                        
+                    if skip_this == 1:
+                        skip_this = 0
+                        continue
+        
+        if modified:
+            return True
+        else:
+            return False
+
     def ReduceBB(self, bb):
-        optimization_order = ['PUSHPOP', 'RET2JMP', 'SymetricNOP', 'Shifts']
+        optimization_order = ['PUSHPOP', 'RET2JMP', 'SymetricNOP', 'Shifts', 'SymetricXCHG']
         #optimization_order = ['RET2JMP']
         
         modified = False

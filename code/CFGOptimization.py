@@ -9,7 +9,7 @@ import idc
 import idautils
 import idaapi
 
-debug = 0
+debug = 1
 
 
 jcc_map = { 'jo':['jno'], 'jno':['jo'],
@@ -68,7 +68,17 @@ class ReduceJMP:
                     if debug:
                         print ">ReduceJMP:Reduce - RefsFrom:", refs_from
                     
-                    if len(refs_from) == 0 or refs_from[0][0] == None or len(refs_from) > 1:
+                    
+                    if instr.GetOriginEA() == self.function.start_ea:
+                        #if a function starts with a jump and has no refs pointing to it
+                        #just skip it
+                        try:
+                            if len(list(self.function.GetRefsTo(instr.GetOriginEA()))) > 1:
+                                continue
+                        except:
+                            self.function.start_ea = refs_from[0][0]
+                            
+                    elif len(refs_from) == 0 or refs_from[0][0] == None or len(refs_from) > 1:
                         #this is a case for jmp reg
                         continue
                     
@@ -79,7 +89,8 @@ class ReduceJMP:
                     elif len(list(self.function.GetRefsTo(instr.GetOriginEA()))) == 1:
                         parent = list(self.function.GetRefsTo(instr.GetOriginEA()))[0][0]
                         if len(list(self.function.GetRefsFrom(parent))) > 1:
-                            continue
+                            if len(list( self.function.GetRefsTo( refs_from[0][0] ))) != 1:
+                                continue
                     
                     refs_to = list(self.function.GetRefsTo(refs_from[0][0]))
                     

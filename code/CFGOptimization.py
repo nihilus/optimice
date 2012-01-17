@@ -9,7 +9,7 @@ import idc
 import idautils
 import idaapi
 
-debug = 1
+debug = 0
 
 
 jcc_map = { 'jo':['jno'], 'jno':['jo'],

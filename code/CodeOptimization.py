@@ -361,6 +361,10 @@ class PeepHole:
                     if debug:
                         print ">PeepHole:PUSHPOP - Removing PUSHPOP @ [%08x] [%s]" % (bb[offset].GetOriginEA(), bb[offset].GetMnem())
                     
+                    if bb[offset+1].GetOpcode()[0] == '\x66' or bb[offset].GetOpcode()[0] != '\x66':
+                        if bb[offset+1].GetOpcode()[0] != bb[offset].GetOpcode()[0]:
+                            continue
+                    
                     pop = bb[offset+1]
                     
                     if push_type in [2,3,4] and pop.GetOpndType(1) in [2,3,4]:
@@ -369,9 +373,13 @@ class PeepHole:
                     to_remove.append(push.GetOriginEA())
                     
                     if push_type == 2:
-                        pop.SetDisasm("MOV %s, [%09xh]" % (pop.GetOpnd(1), push.GetOpndValue(1)))
+                        dis_text = "MOV %s, [%09xh]" % (pop.GetOpnd(1), push.GetOpndValue(1))
+                        dis_text = dis_text.replace('SMALL', '')
+                        pop.SetDisasm(dis_text)
                     else:
-                        pop.SetDisasm("MOV %s, %s" % (pop.GetOpnd(1), push.GetOpnd(1)))
+                        dis_text = "MOV %s, %s" % (pop.GetOpnd(1), push.GetOpnd(1))
+                        dis_text = dis_text.replace('SMALL', '')
+                        pop.SetDisasm(dis_text)
                     
                     pop.SetMnem("MOV")
                     pop.SetOpnd(pop.GetOpnd(1), 1)
@@ -393,14 +401,22 @@ class PeepHole:
                             
                             if push.GetOpndType(1) in [2,3,4] and pop.GetOpndType(1) in [2,3,4]:
                                 break
-                            
+
+                            if pop.GetOpcode()[0] == '\x66' or push.GetOpcode()[0] != '\x66':
+                                if pop.GetOpcode()[0] != push.GetOpcode()[0]:
+                                    break
+                                
                             to_remove.append(push.GetOriginEA())
                             
                             if push_type == 2:
-                                pop.SetDisasm("MOV %s, [%09xh]" % (pop.GetOpnd(1), push.GetOpndValue(1)))
+                                dis_text = "MOV %s, [%09xh]" % (pop.GetOpnd(1), push.GetOpndValue(1))
+                                dis_text = dis_text.replace('SMALL', '')
+                                pop.SetDisasm(dis_text)
                             else:
-                                pop.SetDisasm("MOV %s, %s" % (pop.GetOpnd(1), push.GetOpnd(1)))
-                            
+                                dis_text = "MOV %s, %s" % (pop.GetOpnd(1), push.GetOpnd(1))
+                                dis_text = dis_text.replace('SMALL', '')
+                                pop.SetDisasm(dis_text)
+                        
                             pop.SetMnem("MOV")
                             pop.SetOpnd(pop.GetOpnd(1), 1)
                             pop.SetOpnd(push.GetOpnd(1), 2)

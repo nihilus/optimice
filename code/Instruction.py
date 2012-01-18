@@ -436,6 +436,9 @@ class Instruction:
         for mnem in mnems:
             if mnem == 'XLAT':
                 mnem = 'XLATB'
+            elif mnem == 'PUSHFW' or mnem == 'POPFW':
+                mnem = mnem.replace('FW', 'F')
+                
             if not x86InstructionData.has_key(mnem):
                 print "NOTE: INSTRUCTION NOT RECOGNIZED [%s] @ [%08x] [%s]" % (mnem, self.GetOriginEA(), mnems)
                 print self.GetMnem(1)
@@ -478,7 +481,14 @@ class Instruction:
                             ins['value'] = None 
                             ins['opnd'] = "ESP"
                             taint.AddDstTaint(ins)
-                        
+                            
+                        elif operand.has_key("address") and operand["address"] == "F":
+                            if operand['opType'] == 'dst':
+                                fflags = {'def_f':u'odiszapc'}
+                            else:
+                                fflags = {'test_f':u'odiszapc'}
+                            taint.SetFlags(fflags)
+                            
                         if operand.has_key('displayed'):
                             if operand['opType'] == 'src':
                                 ins = {}
@@ -552,6 +562,7 @@ class Instruction:
                                         
                                 else:
                                     print ">BlockTainting:CalculateInstructionTaint - ERROR"
+                                    print "This Error can be side effect of normal instructions that have no RefsFrom!"
                                     raise MiscError
                                     
                             elif operand['opType'] == 'dst':
@@ -569,6 +580,7 @@ class Instruction:
                                             print ">BlockTainting:CalculateInstructionTaint - Exception @ %08x" % self.GetOriginEA()
                                 
                                         if (not operand.has_key('depend')) or operand['depend'] != "no":
+                                            #this is a depending register so it should be also in SrcTaint
                                             try:
                                                 taint.AddSrcTaint(ins)
                                             except:

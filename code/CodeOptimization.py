@@ -440,8 +440,9 @@ class PeepHole:
                                         print ">PeepHole:PUSHPOP - !GetExOpndRegisters returned suspicious data"
                                         print ">PeepHole:PUSHPOP - ", op['opnd']
                                         print ">PeepHole:PUSHPOP - ", reg
-                                        skip_this = 1
-                                        break
+                                        
+                                    skip_this = 1
+                                    break
                                 
                                 if reg[0][0] == "ESP":
                                     skip_this = 1
@@ -468,8 +469,8 @@ class PeepHole:
                                         print ">PeepHole:PUSHPOP - !GetExOpndRegisters returned suspicious data"
                                         print ">PeepHole:PUSHPOP - ", op['opnd']
                                         print ">PeepHole:PUSHPOP - ", reg
-                                        skip_this = 1
-                                        break
+                                    skip_this = 1
+                                    break
                                 
                                 if reg[0][0] == "ESP":
                                     skip_this = 1
@@ -599,7 +600,7 @@ class PeepHole:
                             
                         for op in taint.GetSrcTaints():
                             if op['type'] == 1:
-                                reg = taint.GetExOpndRegisters(op['opnd'])
+                                regs = taint.GetExOpndRegisters(op['opnd'])
                                 
                                 for reg in regs:
                                     if regs_to_check.has_key(reg[0]):

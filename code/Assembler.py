@@ -225,7 +225,7 @@ Nasm output:
         fp = open("%s\\f_%08x.lst" % (dir, function_ea), "r")
         asm_lst = fp.read()
         
-        base_addr = re.search(r"ORG ([\dABCDEF]{8})H", asm_lst).group(1)
+        base_addr = re.search(r"ORG ([\dABCDEF]+)H", asm_lst).group(1)
         base_addr = int(base_addr, 16)
         
         for jt in self.jmp_table_refs:

@@ -619,7 +619,7 @@ Nasm output:
             self.nasm = True
             self.nasmfw = open(self.opty_dir + os.sep + 'f_%08x.asm' % function.start_ea, "w+")
             self.NasmWriteToFile("[BITS 32]\n")
-            self.NasmWriteToFile("\torg %08xh\n" % function_ea)
+            self.NasmWriteToFile("\torg %09xh\n" % function_ea)
         else:
             self.nasm = False
         

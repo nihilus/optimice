@@ -107,6 +107,10 @@ class Function:
         print ">Function:SaveState - File [%s] saved @ [%s]" % (self.save_fname, os.getcwd())
 
     def GetRefsTo(self, ea_to):
+        if not self.refs_to.has_key(ea_to):
+            print "Warning!: [%08x] has no refs to, this is OK only for start_ea of function" % ea_to
+            return
+        
         for ea in self.refs_to[ea_to]:
             yield (ea, self.refs_to[ea_to][ea])
         
@@ -200,6 +204,9 @@ class Function:
         
         #if this is function head, declare ref_from new function head
         if self.start_ea == ref_remove:
+            if debug:
+                print ">Function:DelRefs - New start_ea = [%08x]" % ref_from
+                
             self.start_ea = ref_from
         
         #if not delete all references to ref_remove
@@ -360,7 +367,10 @@ class Function:
                 if debug:
                     print ">Function:RemoveInstruction - mnem[%s] ea[%08x]" % (test.GetMnem(), test.GetOriginEA())
                 
-                if location == 0 and old_bb_len > 0:
+                if location == 0 and ea == self.start_ea:
+                    break
+                
+                elif location == 0 and old_bb_len > 0:
                     #if len(self.basic_blocks[bb_ea]) > 1:
                     try:
                         new_bb_head = self.basic_blocks[bb_ea][0].GetOriginEA()
@@ -370,7 +380,7 @@ class Function:
                     self.basic_blocks[new_bb_head] = copy.deepcopy(self.basic_blocks[bb_ea])
                     
                     if debug:
-                        print ">Function:RemoveInstruction - Removing BasicBlock @ [%08x]" % bb_ea
+                        print ">Function:RemoveInstruction0 - Removing BasicBlock @ [%08x]" % bb_ea
                     
                     del self.basic_blocks[bb_ea]
                     
@@ -999,7 +1009,7 @@ class Function:
             code references to the middle of the block.
             Used for debugging.
         '''
-        if self.start_ea == 0:
+        if self.start_ea == None:
             return
         
         if debug:
@@ -1082,7 +1092,7 @@ class Function:
             Traverse all instructions in CFG.
             Used for debugging.
         '''
-        if self.start_ea == 0:
+        if self.start_ea == None:
             return
         
         if debug:
@@ -1131,7 +1141,7 @@ class Function:
             callback - function
         '''
         
-        if self.start_ea == 0:
+        if self.start_ea == None:
             return
         
         if debug:

@@ -106,6 +106,13 @@ class DeadCodeElimination:
             
             for delta in xrange(offset+1, len(bb)):
                 delta_taint = bb[delta].GetTaintInfo()
+                
+                if bb[delta].IsCFI():
+                    if debug:
+                        print ">DeadCodeElimination:ReduceBB - Found CFI instruction, skipping"
+                        
+                    break
+                
                 if debug and debug_detailed:
                     print ">DeadCodeElimination:ReduceBB - ", len(bb), delta, bb[delta].GetDisasm()
                 

@@ -597,7 +597,28 @@ class Function:
         instr.SetOpcode(''.join(chr(idc.Byte(ea+x)) for x in xrange(0, idc.ItemSize(ea))))
         instr.SetOpnd(idc.GetOpnd(ea, 0), 1)
         instr.SetOpndType(idc.GetOpType(ea, 0), 1)
-        instr.SetOpndValue(idc.GetOperandValue(ea, 0), 1)
+        
+        op_val = idc.GetOperandValue(ea, 0)
+        op_mask = 0
+        op_size = 0
+        if idaapi.cmd[0].dtyp == idaapi.dt_byte:
+            op_mask = 0xff
+            op_size = 1
+        elif idaapi.cmd[0].dtyp == idaapi.dt_word:
+            op_mask = 0xffff
+            op_size = 2
+        elif idaapi.cmd[0].dtyp == idaapi.dt_dword:
+            op_mask = 0xffffffffL
+            op_size = 4
+        elif idaapi.cmd[0].dtyp == idaapi.dt_qword:
+            op_mask = 0xffffffffffffffffL
+            op_size = 8
+        else:
+            raise MiscError
+        op_val &= op_mask
+        
+        instr.SetOpndSize(op_size, 1)
+        instr.SetOpndValue(op_val, 1)
         instr.SetComment(idc.Comment(ea))
         
         #what to add to addr_todo
@@ -862,12 +883,54 @@ class Function:
                     #add CFG edges
                     instr.SetOpnd(idc.GetOpnd(ea, 1), 2)
                     instr.SetOpndType(idc.GetOpType(ea, 1), 2)
-                    instr.SetOpndValue(idc.GetOperandValue(ea, 1), 2)
+                    
+                    op_val = idc.GetOperandValue(ea, 1)
+                    op_mask = 0
+                    op_size = 0
+                    if idaapi.cmd[0].dtyp == idaapi.dt_byte:
+                        op_mask = 0xff
+                        op_size = 1
+                    elif idaapi.cmd[0].dtyp == idaapi.dt_word:
+                        op_mask = 0xffff
+                        op_size = 2
+                    elif idaapi.cmd[0].dtyp == idaapi.dt_dword:
+                        op_mask = 0xffffffffL
+                        op_size = 4
+                    elif idaapi.cmd[0].dtyp == idaapi.dt_qword:
+                        op_mask = 0xffffffffffffffffL
+                        op_size = 8
+                    else:
+                        raise MiscError
+                    op_val &= op_mask
+                    
+                    instr.SetOpndSize(op_size, 2)
+                    instr.SetOpndValue(op_val, 2)
                     
                     if idc.GetOpnd(ea,2) != '':
                         instr.SetOpnd(idc.GetOpnd(ea, 2), 3)
                         instr.SetOpndType(idc.GetOpType(ea, 2), 3)
-                        instr.SetOpndValue(idc.GetOperandValue(ea, 2), 3)
+
+                        op_val = idc.GetOperandValue(ea, 2)
+                        op_mask = 0
+                        op_size = 0
+                        if idaapi.cmd[0].dtyp == idaapi.dt_byte:
+                            op_mask = 0xff
+                            op_size = 1
+                        elif idaapi.cmd[0].dtyp == idaapi.dt_word:
+                            op_mask = 0xffff
+                            op_size = 2
+                        elif idaapi.cmd[0].dtyp == idaapi.dt_dword:
+                            op_mask = 0xffffffffL
+                            op_size = 4
+                        elif idaapi.cmd[0].dtyp == idaapi.dt_qword:
+                            op_mask = 0xffffffffffffffffL
+                            op_size = 8
+                        else:
+                            raise MiscError
+                        op_val &= op_mask
+                        
+                        instr.SetOpndSize(op_size, 3)
+                        instr.SetOpndValue(op_val, 3)
                         
                     self.AddRefsTo(refs[0], ea, False)
                     self.AddRefsFrom(ea, refs[0], False)

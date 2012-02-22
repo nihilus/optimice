@@ -408,7 +408,7 @@ class PeepHole:
                             
                             if push.GetOpndType(1) in [2,3,4] and pop.GetOpndType(1) in [2,3,4]:
                                 break
-
+                            
                             if pop.GetOpcode()[0] == '\x66' or push.GetOpcode()[0] != '\x66':
                                 if pop.GetOpcode()[0] != push.GetOpcode()[0]:
                                     break
@@ -418,17 +418,18 @@ class PeepHole:
                             if push_type == 2:
                                 dis_text = "MOV %s, [%09xh]" % (pop.GetOpnd(1), push.GetOpndValue(1))
                                 dis_text = dis_text.replace('SMALL', '')
-                                pop.SetDisasm(dis_text)
+                                
                             else:
                                 dis_text = "MOV %s, %s" % (pop.GetOpnd(1), push.GetOpnd(1))
                                 dis_text = dis_text.replace('SMALL', '')
-                                pop.SetDisasm(dis_text)
-                        
+                            
+                            pop.SetDisasm(dis_text)
+                            
                             pop.SetMnem("MOV")
                             pop.SetOpnd(pop.GetOpnd(1), 1)
                             pop.SetOpnd(push.GetOpnd(1), 2)
                             
-                            pop.SetOpcode(Assembler.SimpleAsm(pop.GetDisasm()))
+                            #pop.SetOpcode(Assembler.SimpleAsm(pop.GetDisasm()))
                             pop.SetOpndType(push.GetOpndType(1), 2)
                             pop.SetOpndValue(push.GetOpndValue(1), 2)
                             
@@ -486,10 +487,130 @@ class PeepHole:
                         if skip_this == 1:
                             break
                         
-                    if skip_this == 1:
-                        skip_this = 0
-                        continue
-        
+                    
+            elif mnem == 'pushf' or mnem == 'pushfd' or mnem == 'pushfw':
+                pushf = bb[offset]
+                
+                for ins in bb[offset+1:]:
+                    i_mnem = ins.GetMnem()
+                    if (i_mnem == 'popf' or i_mnem == 'popfd' or i_mnem == 'popfw') and i_mnem[3:] == mnem[4:]:
+                        to_remove.append(ins.GetOriginEA())
+                        to_remove.append(pushf.GetOriginEA())
+                        
+                        if debug:
+                            print ">PeepHole:PUSHFPOPF - Removing %s[%08x]/%s[%08x] instructions" % (mnem, pushf.GetOriginEA(), i_mnem, ins.GetOriginEA())
+                        
+                    else:
+                        i_taint = ins.GetTaintInfo()
+                        i_flags = i_taint.GetFlags('modif_f')
+                        if i_flags != None and len(i_flags) > 0:
+                            break
+            
+            elif mnem == 'pusha' or mnem == 'pushad':
+                if len(bb) > (offset+1):
+                    pusha = bb[offset]
+                    
+                    ins = bb[offset+1]
+                    i_mnem = ins.GetMnem()
+                    
+                    if (i_mnem == 'popa' or i_mnem == 'popad') and mnem[4:] == i_mnem[3:]:
+                        to_remove.append(ins.GetOriginEA())
+                        to_remove.append(pusha.GetOriginEA())
+                        
+                        if debug:
+                            print ">PeepHole:PUSHAPOPA - Removing %s[%08x]/%s[%08x] instructions" % (mnem, pusha.GetOriginEA(), i_mnem, ins.GetOriginEA())
+            
+            elif mnem == 'sub':
+                sub = bb[offset]
+                
+                if sub.GetOpnd(1) == 'ESP' and sub.GetOpndValue(2) in [2,4]:
+                    for ins in bb[offset+1:]:
+                        if ins.GetMnem() == 'mov' and ins.GetOpndType(1) == 3 and ins.GetOpndType(2) == 5:
+                            ins_disas = ins.GetDisasm()
+                            if ins_disas.find('esp') > 0 and ( ins_disas.find('dword') > 0 or ins_disas.find('small') ):
+                                
+                                word_prefix = ''
+                                if ins_disas.find('dword') > 0 and sub.GetOpndValue(2) == 4:
+                                    dis_text = "PUSH DWORD %09xh" % ins.GetOpndValue(2)
+                                    
+                                elif ins_disas.find('word') > 0 and sub.GetOpndValue(2) == 2:
+                                    dis_text = "PUSH WORD %07xh" % ins.GetOpndValue(2)
+                                    word_prefix = '\x66'
+                                    
+                                else:
+                                    if debug:
+                                        print ">PeepHole:SUBPUSH - Skipping, operands sizes don't match"
+                                        
+                                    break
+                                
+                                ins.SetMnem("PUSH")
+                                
+                                ins.SetDisasm(dis_text)
+                                
+                                ins.SetOpnd(ins.GetOpnd(2), 1)
+                                ins.SetOpndValue(ins.GetOpndValue(2), 1)
+                                ins.SetOpndType(ins.GetOpndType(2), 1)
+                                
+                                ins.SetOpnd(None, 2)
+                                ins.SetOpndType(None, 2)
+                                ins.SetOpndValue(None, 2)
+                                ins.SetOpndSize(None, 2)
+                                
+                                ins.SetOpcode(word_prefix + '\x68\xde\xad')
+                                
+                                to_remove.append(sub.GetOriginEA())
+                                if debug:
+                                    print ">PeepHole:SUBPUSH - Removing [%s][%08x] instructions" % (mnem, sub.GetOriginEA())
+                                
+                                break
+                                
+                        else:
+                            #check that memory or stack isn't tainted
+                            taint = ins.GetTaintInfo()
+                            
+                            skip_this = 0
+                            for op in taint.GetDstTaints():
+                                if op['type'] == 1:
+                                    reg = taint.GetExOpndRegisters(op['opnd'])
+                                    if len(reg) != 1:
+                                        if debug and debug_detailed:
+                                            print ">PeepHole:PUSHPOP - !GetExOpndRegisters returned suspicious data"
+                                            print ">PeepHole:PUSHPOP - ", op['opnd']
+                                            print ">PeepHole:PUSHPOP - ", reg
+                                            
+                                        skip_this = 1
+                                        break
+                                    
+                                    if reg[0][0] == "ESP":
+                                        skip_this = 1
+                                        break
+                                    
+                                elif op['type'] in [2,3,4]:
+                                    skip_this = 1
+                                    break
+                                    
+                            if skip_this == 1:
+                                break
+                            
+                            skip_this = 0
+                            for op in taint.GetSrcTaints():
+                                if op['type'] == 1:
+                                    reg = taint.GetExOpndRegisters(op['opnd'])
+                                    if len(reg) != 1:
+                                        if debug and debug_detailed:
+                                            print ">PeepHole:PUSHPOP - !GetExOpndRegisters returned suspicious data"
+                                            print ">PeepHole:PUSHPOP - ", op['opnd']
+                                            print ">PeepHole:PUSHPOP - ", reg
+                                        skip_this = 1
+                                        break
+                                    
+                                    if reg[0][0] == "ESP":
+                                        skip_this = 1
+                                        break
+                                    
+                            if skip_this == 1:
+                                break
+                            
         for item in to_remove:
             self.function.RemoveInstruction(item)
         

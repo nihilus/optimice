@@ -288,6 +288,17 @@ class Instruction:
         else:
             return None
     
+    def SetOpndSize(self, op_size, opnr):
+        op_name = 'op%d_size' % opnr
+        self.instr[op_name] = op_size
+        
+    def GetOpndSize(self, opnr):
+        op_name = 'op%d_size' % opnr
+        if self.instr.has_key(op_name):
+            return self.instr[op_name]
+        else:
+            return None
+    
     def GetOpndPrefixSize(self, opnr):
         op = self.GetOpndPrefix(opnr)
         if op != None:
@@ -319,6 +330,12 @@ class Instruction:
         if opnr == 1:
             if disas.find("PTR") >= 0:
                 prefix = re.search(r"\s+([A-Z]+)\s+PTR\s+", disas)
+                if prefix != None:
+                    return prefix.group(1)
+                else:
+                    return None
+            else:
+                prefix = re.search(r".*?(BYTE|DWORD|QWORD|WORD)\s.*?,?", disas)
                 if prefix != None:
                     return prefix.group(1)
                 else:

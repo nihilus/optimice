@@ -305,7 +305,7 @@ Nasm output:
                 self.NasmWriteToFile("\t%s L%08x" % (instr.GetMnem(1), key), instr)
             else:
                 if self.bb_head_ea.has_key(key):
-                    mnem += '%08xh' % self.bb_head_ea[key]
+                    mnem += '%09xh' % self.bb_head_ea[key]
                     return mnem
                 
                 else:
@@ -324,13 +324,13 @@ Nasm output:
         
         if instr.GetMnem() == 'call':
             if instr.GetOpndType(1) in [2,5,6]:
-                mnem += '%08xh' % instr.GetOpndValue(1)
+                mnem += '%09xh' % instr.GetOpndValue(1)
             elif instr.GetOpndType(1) == 7:
                 comment = instr.GetComment()
                 if comment != None and comment == "Artificial: Gen from call $+5":
                     mnem += '$+5'
                 else:
-                    mnem += '%08xh' % instr.GetOpndValue(1)
+                    mnem += '%09xh' % instr.GetOpndValue(1)
                 
             elif instr.GetOpndType(1) == 1:
                 mnem += instr.GetOpnd(1)
@@ -426,7 +426,10 @@ Nasm output:
                     opnd = '%s [0x%08x]' % (instr.BytesToPrefix(op_size_2), instr.GetOpndValue(1))
                     
                 mnem += opnd
-                
+            
+            elif instr.GetOpndPrefix(1) != None:
+                mnem += '%s %s' % (instr.GetOpndPrefix(1), instr.GetOpnd(1))
+            
             else:
                 mnem += instr.GetOpnd(1)
             
@@ -649,7 +652,7 @@ Nasm output:
                     if self.nasm:
                         self.NasmWriteToFile("\tjmp L%08x ; \n" % ref_from)
                     else:
-                        self.AsmAndWrite("jmp %08xh" % self.bb_head_ea[ref_from])
+                        self.AsmAndWrite("jmp %09xh" % self.bb_head_ea[ref_from])
             
             elif instr.GetMnem() == "call":
                 for ref,path in function.GetRefsFrom(instr.GetOriginEA()):
@@ -658,7 +661,7 @@ Nasm output:
                             if self.nasm:
                                 self.NasmWriteToFile("\tjmp L%08x ; ###FAKE 2 JMP###\n" % ref)
                             else:
-                                self.AsmAndWrite("jmp %08xh" % self.bb_head_ea[ref])
+                                self.AsmAndWrite("jmp %09xh" % self.bb_head_ea[ref])
             
             elif instr.IsJcc():
                 ref_from = list(function.GetRefsFrom(instr.GetOriginEA()))
@@ -674,7 +677,7 @@ Nasm output:
                     if self.nasm:
                         self.NasmWriteToFile("\tjmp L%08x ; ###FAKE 2 JMP###\n" % ref)
                     else:
-                        self.AsmAndWrite("jmp %08xh" % self.bb_head_ea[ref])
+                        self.AsmAndWrite("jmp %09xh" % self.bb_head_ea[ref])
         
         ret = None
         if self.nasm:

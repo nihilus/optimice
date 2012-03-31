@@ -173,7 +173,7 @@ class Assemble:
         idc.Batch(0)
         while 1:
             try:
-                p = subprocess.Popen([nasm, arg1, arg2, arg3, arg4], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                p = subprocess.Popen([nasm, arg1, arg2, arg3, arg4], stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
                 o, e = p.communicate()
                 
                 if o != "": print o

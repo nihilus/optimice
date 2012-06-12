@@ -144,7 +144,7 @@ class DeadCodeElimination:
                             regs = taint.GetExOpndRegisters(op['opnd'])
                             
                             for reg in regs:
-                                if regs_to_check.has_key(reg[0]) and regs_to_check[reg[0]] <= reg[1]:
+                                if regs_to_check.has_key(reg[0]) and regs_to_check[reg[0]] != False and regs_to_check[reg[0]] <= reg[1]:
                                     regs_to_check[reg[0]] = False
                                     
                                     if debug and debug_detailed:
@@ -360,23 +360,62 @@ class PeepHole:
         
         for offset in xrange(0, bb_len-1):
             mnem = bb[offset].GetMnem().lower()
-            if mnem == "push":
+            if mnem == "push":                
                 push = bb[offset]
                 push_type = push.GetOpndType(1)
                 
-                if bb[offset+1].GetMnem() == "pop":
+                if bb[offset+1].GetMnem().lower() == "pop":
                     if debug:
-                        print ">PeepHole:PUSHPOP - Removing PUSHPOP @ [%08x] [%s]" % (bb[offset].GetOriginEA(), bb[offset].GetMnem())
-                    
-                    if bb[offset+1].GetOpcode()[0] == '\x66' or bb[offset].GetOpcode()[0] != '\x66':
-                        if bb[offset+1].GetOpcode()[0] != bb[offset].GetOpcode()[0]:
-                            continue
+                        print ">PeepHole:PUSHPOP - Trying to remove PUSHPOP @ [%08x] [%s]" % (bb[offset].GetOriginEA(), bb[offset].GetMnem())
                     
                     pop = bb[offset+1]
+                    pop_type = pop.GetOpndType(1)
+                    
+                    if push_type == pop_type and push_type == 1:
+                        if push.GetOpnd(1) == pop.GetOpnd(1):
+                            if debug:
+                                print ">PeepHole:PUSHPOP - Removing PUSHPOP same reg [%08x] reg[%s]" % (bb[offset].GetOriginEA(), bb[offset].GetOpnd(1))
+                            to_remove.append(push.GetOriginEA())
+                            to_remove.append(pop.GetOriginEA())
+                            
+                            break
+                        
+                        else:
+                            if push.GetRegSize(push.GetOpnd(1)) == pop.GetRegSize(pop.GetOpnd(1)):
+                                pop.SetMnem("mov")
+                                
+                                pop.SetOpnd(pop.GetOpnd(1), 1)
+                                pop.SetOpnd(push.GetOpnd(1), 2)
+                                
+                                pop.SetOpndType(1, 1)
+                                pop.SetOpndType(1, 2)
+                                
+                                pop.SetDisasm("mov %s, %s" % (pop.GetOpnd(1), push.GetOpnd(1)))
+                                
+                                pop.SetOpcode(Assembler.SimpleAsm(pop.GetDisasm()))
+                                if debug:
+                                    print ">PeepHole:PUSHPOP - miasm:FAILED asm(%s) [%s]" % (pop.GetDisasm(), pop.GetOpcode().encode('hex'))
+                                    
+                                pop.SetOpndType(push.GetOpndType(1), 2)
+                                pop.SetOpndValue(push.GetOpndValue(1), 2)
+                                
+                                to_remove.append(push.GetOriginEA())
+                            
+                                break
+                            
+                    if pop.GetOpcode()[0] == '\x66' and push.GetOpcode()[0] != '\x66':
+                        if pop.GetOpcode()[0] != push.GetOpcode()[0]:
+                            if debug:
+                                print ">PeepHole:PUSHPOP - FAILING on \\x66 opcode [%s]/[%s]!" % (push.GetOpcode()[0].encode('hex'), pop.GetOpcode()[0].encode('hex'))
+                            continue
                     
                     if push_type in [2,3,4] and pop.GetOpndType(1) in [2,3,4]:
+                        if debug:
+                            print ">PeepHole:PUSHPOP - FAILING on PUSH/POP types!"
                         continue
                     
+                    if debug:
+                        print ">PeepHole:PUSHPOP - Removing PUSH/POP pair [%s]/[%s]" % (push.GetDisasm(), pop.GetDisasm())
                     to_remove.append(push.GetOriginEA())
                     
                     if push_type == 2:
@@ -396,7 +435,7 @@ class PeepHole:
                     pop.SetOpndType(push.GetOpndType(1), 2)
                     pop.SetOpndValue(push.GetOpndValue(1), 2)
                     
-                    pop.SetOpcode('\xba\x85')
+                    #pop.SetOpcode('\xba\x85')
                 
                 else:
                     for ins in bb[offset+1:]:

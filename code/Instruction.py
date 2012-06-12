@@ -49,6 +49,7 @@ class Instruction:
         self.t_prefix = None
         self.t_mnem = None
         self.t_op = {}
+        self.group = None
         
         self.taint = None
         
@@ -72,6 +73,19 @@ class Instruction:
             
             x86InstructionData = pickle.loads(zlib.decompress(data))
             fp.close()
+
+    def GetTypeGroup(self, group=None):
+        if self.taint == None:
+            self.LoadInstructionData()
+            self.taint = self.CalculateInstructionTaint()
+        
+        if group != None:
+            if self.group.has_key(group):
+                return self.group[group]
+            else:
+                return None
+        else:
+            return self.group
 
     def GetTaintInfo(self):
         if self.taint != None:
@@ -235,6 +249,15 @@ class Instruction:
     def GetDisasm(self):
         if self.instr.has_key('disasm'):
             return self.instr['disasm']
+        else:
+            return None
+
+    #Normalized disasm for sym_exec
+    def GetNDisasm(self):
+        if self.instr.has_key('disasm'):
+            dis = self.instr['disasm'].lower()
+            dis = re.sub(r"([\dabcdef]+)h", r"0x\1", dis)
+            return dis
         else:
             return None
 
@@ -445,7 +468,6 @@ class Instruction:
             print ">BlockTainting:CalculateInstructionTaint - [%s] [%08x]" % (instr_string, self.GetOriginEA())
             print ">BlockTainting:CalculateInstructionTaint - Mnems", mnems
         
-        if debug:
             print ">BlockTainting:CalculateInstructionTaint - OriginEA=[%08x] Disasm[%s] Mnems[%s]" % (self.GetOriginEA(), disasm, ' '.join(mnems))
         
         taint.mnem = ' '.join(mnems)
@@ -467,6 +489,10 @@ class Instruction:
                 op = unicode(op.upper())
                 if x86InstructionData[mnem].has_key(op):
                     info = x86InstructionData[mnem][op]
+                    
+                    # Load instruction group information
+                    if info[0].has_key('grp'):
+                        self.group = info[0]['grp']
                     
                     if debug:
                         print ">BlockTainting:CalculateInstructionTaint - Disasm:", disasm

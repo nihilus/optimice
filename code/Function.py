@@ -181,9 +181,13 @@ class Function:
             if self.refs_to.has_key(ref_remove):
                 print ">Function:DelRefs - RefsTo:", ', '.join(['%08x' % x for x in self.refs_to[ref_remove] if x!=None])
             else:
-                print ">Function:DelRefs - RefsTo: None, Removing function head", 
+                print ">Function:DelRefs - RefsTo: None, Removing function head" 
             print ">Function:DelRefs - RefsFrom:", ', '.join(['%08x' % x for x in self.refs_from[ref_remove] if x!=None])
         
+        if ref_from != self.start_ea and not self.refs_to.has_key(ref_remove):
+            print ">Function:DelRefs - CFG State inconsitency! It's not a bug if there was undefined code but if you can share sample please send for examination!"
+            return
+            
         #start by establishin references from blink<->flink
         #if this instruction is function head, skip this case and make next reference function head
         if ref_remove != self.start_ea:
@@ -614,7 +618,11 @@ class Function:
             op_mask = 0xffffffffffffffffL
             op_size = 8
         else:
-            raise MiscError
+            print "Unknows op_type @ [%08x]" % ea
+            op_mask = 0xffffffffL
+            op_size = 4
+            
+            #raise MiscError
         op_val &= op_mask
         
         instr.SetOpndSize(op_size, 1)
@@ -900,7 +908,11 @@ class Function:
                         op_mask = 0xffffffffffffffffL
                         op_size = 8
                     else:
-                        raise MiscError
+                        print "Unknows op_type @ [%08x]" % ea
+                        op_mask = 0xffffffffL
+                        op_size = 4
+                        
+                        #raise MiscError
                     op_val &= op_mask
                     
                     instr.SetOpndSize(op_size, 2)

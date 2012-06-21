@@ -52,6 +52,7 @@ class Instruction:
         self.group = None
         
         self.taint = None
+        self.isRing3 = None
         
         if ea != None:
             self.SetOriginEA(ea)
@@ -487,7 +488,12 @@ class Instruction:
             for opc in opcode:
                 op = '%02x' % ord(opc)
                 op = unicode(op.upper())
-                if x86InstructionData[mnem].has_key(op):
+                
+                if not x86InstructionData.has_key(mnem):
+                    print ">BlockTainting:CalculateInstructionTaint - No taint information for [%s]@[%08x]" % (mnem, self.GetOriginEA())
+                    return None
+                
+                elif x86InstructionData[mnem].has_key(op):
                     info = x86InstructionData[mnem][op]
                     
                     # Load instruction group information
@@ -503,7 +509,10 @@ class Instruction:
                             
                     if info[0].has_key('ring'):
                         if info[0]['ring'] != '3' and info[0]['ring'] != 'f':
-                            print ">BlockTainting:CalculateInstructionTaint - WARRNING: Instruction [%s] Ring != 3!" % taint.mnem
+                            print ">BlockTainting:CalculateInstructionTaint - WARRNING: Instruction [%s] Ring != 3 [%s]" % (taint.mnem, repr(self.GetDisasm()))
+                            self.isRing3 = False
+                        else:
+                            self.isRing3 = True
                       
                     if debug:  
                         if info[0]['flags'].has_key('f_vals'):
@@ -601,7 +610,9 @@ class Instruction:
                                             print ">BlockTainting:CalculateInstructionTaint - GetOpndType", self.GetOpndType(op_counter)
                                             print ">BlockTainting:CalculateInstructionTaint - GetMnem", self.GetMnem()
                                             print ">BlockTainting:CalculateInstructionTaint - WARRNING: Operand HIDDEN!", "op_counter[%d] @ [%08x]" % (op_counter, self.GetOriginEA())
-                                            raise MiscError
+                                            
+                                            return None
+                                            #raise MiscError
                                         
                                 else:
                                     print ">BlockTainting:CalculateInstructionTaint - ERROR"
@@ -653,6 +664,8 @@ class Instruction:
                     print ">BlockTainting:CalculateInstructionTaint - mnem[%s] OriginEA[%08x]" % (mnem, self.GetOriginEA())
                     print ">BlockTainting:CalculateInstructionTaint - ", opc, ''.join(['%02x' % ord(opcode[x]) for x in xrange(0, len(opcode))])
                     print ">BlockTainting:CalculateInstructionTaint - ", x86InstructionData[mnem].keys()
-                    raise MiscError
+                    
+                    return None
+                    #raise MiscError
         
         return taint

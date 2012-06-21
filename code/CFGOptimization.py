@@ -214,6 +214,9 @@ class ReduceJMP:
             for instr in bb[::-1][1:]:
                 taint = instr.GetTaintInfo()
                 
+                if taint == None:
+                    break
+                
                 #modif_f
                 #f_vals
                 f_vals = taint.GetFlags('f_vals')

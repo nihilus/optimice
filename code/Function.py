@@ -743,6 +743,10 @@ class Function:
                     raise MiscError
                 
             else:
+                if ea == self.start_ea:
+                    self.start_ea = refs[0]
+                    create_new_bb = 1
+                
                 self.addr_todo.append(refs[0])
                 refs_appended += 1
                 create_new_bb = 1

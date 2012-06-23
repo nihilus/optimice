@@ -69,8 +69,10 @@ def LoadSavedFunctions(ea=None):
 class Function:
     """Function graph abstraction"""
     
-    def __init__(self, startEA=None):
+    def __init__(self, startEA=None, replaceRingNot3=True):
         self.save_fname = ''
+        
+        self.bReplaceInsRingNot3 = replaceRingNot3
         
         self.start_ea = None       #start addr of function
         self.addr_done = {}     #{} of done blocks; key=ea, value=bb addr that ea belongs to
@@ -618,7 +620,7 @@ class Function:
             op_mask = 0xffffffffffffffffL
             op_size = 8
         else:
-            print "Unknows op_type @ [%08x]" % ea
+            print "Unknown op_type @ [%08x]" % ea
             op_mask = 0xffffffffL
             op_size = 4
             
@@ -908,7 +910,7 @@ class Function:
                         op_mask = 0xffffffffffffffffL
                         op_size = 8
                     else:
-                        print "Unknows op_type @ [%08x]" % ea
+                        print "Unknown op_type @ [%08x]" % ea
                         op_mask = 0xffffffffL
                         op_size = 4
                         
@@ -938,12 +940,53 @@ class Function:
                             op_mask = 0xffffffffffffffffL
                             op_size = 8
                         else:
-                            raise MiscError
+                            print "Unknown op_type @ [%08x]" % ea
+                            op_mask = 0xffffffffL
+                            op_size = 4
+                            
+                            #raise MiscError
+                            
                         op_val &= op_mask
                         
                         instr.SetOpndSize(op_size, 3)
                         instr.SetOpndValue(op_val, 3)
                         
+                        
+                    # Check if this instruction is != ring3
+                    taint = instr.GetTaintInfo()
+                    
+                    if taint != None and self.bReplaceInsRingNot3 == True and instr.isRing3 == False:
+                        
+                        print "Removing Ring!3[%s]" % repr(idc.GetDisasm(ea))
+                        
+                        instr.SetOpcode('\xc3')
+                        instr.SetMnem('retn')
+                        instr.SetDisasm('retn')
+                        instr.SetIsModified(True)
+                        
+                        instr.SetOpnd(None, 1)
+                        instr.SetOpndType(None, 1)
+                        instr.SetOpndValue(None, 1)
+                        instr.SetOpnd(None, 2)
+                        instr.SetOpndType(None, 2)
+                        instr.SetOpndValue(None, 2)
+                        
+                        instr.SetComment('Artificial: Original instruction != ring3 [%s]!' % repr(idc.GetDisasm(ea)))
+                        
+                        try:
+                            self.basic_blocks[self.current_block].append(instr)
+                        except:
+                            self.basic_blocks[self.current_block] = [instr]
+                            
+                        self.current_block = 0
+                        self.fake_ret.append(ea)
+                        
+                        #Add references to CFG
+                        self.AddRefsTo(None, ea, True)
+                        self.AddRefsFrom(ea, None, True)
+                        
+                        return refs_appended #done with current instruction
+                    
                     self.AddRefsTo(refs[0], ea, False)
                     self.AddRefsFrom(ea, refs[0], False)
             

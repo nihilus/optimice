@@ -509,7 +509,8 @@ class Instruction:
                             
                     if info[0].has_key('ring'):
                         if info[0]['ring'] != '3' and info[0]['ring'] != 'f':
-                            print ">BlockTainting:CalculateInstructionTaint - WARRNING: Instruction [%s] Ring != 3 [%s]" % (taint.mnem, repr(self.GetDisasm()))
+                            if debug:
+                                print ">BlockTainting:CalculateInstructionTaint - WARRNING: Instruction [%s] Ring != 3 [%s]" % (taint.mnem, repr(self.GetDisasm()))
                             self.isRing3 = False
                         else:
                             self.isRing3 = True

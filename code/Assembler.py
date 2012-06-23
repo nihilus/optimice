@@ -9,10 +9,16 @@ import re
 import pickle
 import zlib
 import random
+import sys
 
 import idc
 import idautils
 import idaapi
+
+try:
+    from miasm.arch.ia32_arch import *
+except:
+    pass
 
 debug = 0
 
@@ -21,6 +27,12 @@ class MiscError(Exception):
         return
     
 def SimpleAsm(string):
+    
+    if sys.modules.has_key('miasm'):
+        i_opcode = x86_mn.asm(string.lower())
+        if len(i_opcode) > 0:
+            return i_opcode
+    
     idc.Batch(1)
     
     while True:

@@ -39,6 +39,9 @@ class DeadCodeElimination:
             taint = bb[offset].GetTaintInfo()
             instr = bb[offset]
             
+            if taint == None:
+                continue
+            
             if debug:
                 print ">DeadCodeElimination:ReduceBB - @ [%08x] %s" % (instr.GetOriginEA(), instr.GetDisasm())
             
@@ -106,6 +109,9 @@ class DeadCodeElimination:
             
             for delta in xrange(offset+1, len(bb)):
                 delta_taint = bb[delta].GetTaintInfo()
+                
+                if delta_taint == None:
+                    break
                 
                 if bb[delta].IsCFI():
                     if debug:
@@ -403,6 +409,9 @@ class PeepHole:
                             
                                 break
                             
+                            else:
+                                break
+                            
                     if pop.GetOpcode()[0] == '\x66' and push.GetOpcode()[0] != '\x66':
                         if pop.GetOpcode()[0] != push.GetOpcode()[0]:
                             if debug:
@@ -478,6 +487,9 @@ class PeepHole:
                         
                         taint = ins.GetTaintInfo()
                         
+                        if taint == None:
+                            break
+                        
                         skip_this = 0
                         for op in taint.GetDstTaints():
                             if op['type'] == 1:
@@ -541,6 +553,9 @@ class PeepHole:
                         
                     else:
                         i_taint = ins.GetTaintInfo()
+                        if i_taint == None:
+                            break
+                        
                         i_flags = i_taint.GetFlags('modif_f')
                         if i_flags != None and len(i_flags) > 0:
                             break
@@ -606,6 +621,9 @@ class PeepHole:
                         else:
                             #check that memory or stack isn't tainted
                             taint = ins.GetTaintInfo()
+                            
+                            if taint == None:
+                                break
                             
                             skip_this = 0
                             for op in taint.GetDstTaints():
@@ -715,7 +733,7 @@ class PeepHole:
                         raise MiscError
                     
                     regs_to_check[reg[0][0]] = ''
-                            
+                    
                     reg = xchg_taint.GetExOpndRegisters(xchg.GetOpnd(2))
                     
                     if len(reg[0][0]) == 0:

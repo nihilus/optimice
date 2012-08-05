@@ -258,6 +258,7 @@ class Instruction:
         if self.instr.has_key('disasm'):
             dis = self.instr['disasm'].lower()
             dis = re.sub(r"([\dabcdef]+)h", r"0x\1", dis)
+            dis = re.sub(r"push\s+dword\s+(0x[\dabcdef]+)", r"push \1", dis)
             return dis
         else:
             return None

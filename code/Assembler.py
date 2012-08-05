@@ -29,7 +29,12 @@ class MiscError(Exception):
 def SimpleAsm(string):
     
     if sys.modules.has_key('miasm'):
-        i_opcode = x86_mn.asm(string.lower())
+        try:
+            i_opcode = x86_mn.asm(string.lower())
+        except:
+            print ">Assembler:SimpleAsm - Error miasm.asm() for [%s]" % string
+            i_opcode = ''
+            
         if len(i_opcode) > 0:
             return i_opcode
     

@@ -178,6 +178,9 @@ class Function:
         
         ref_from = self.refs_from[ref_remove].keys()[0]
         
+        if debug:
+            print ">Function:DelRefs - Function start ea [%08x]" % self.start_ea
+        
         if debug and ref_from != self.start_ea:
             print ">Function:DelRefs - Removing references to location [%08x]" % ref_remove
             if self.refs_to.has_key(ref_remove):
@@ -186,7 +189,8 @@ class Function:
                 print ">Function:DelRefs - RefsTo: None, Removing function head" 
             print ">Function:DelRefs - RefsFrom:", ', '.join(['%08x' % x for x in self.refs_from[ref_remove] if x!=None])
         
-        if ref_from != self.start_ea and not self.refs_to.has_key(ref_remove):
+        
+        if ref_remove != self.start_ea and not self.refs_to.has_key(ref_remove):
             print ">Function:DelRefs - CFG State inconsitency! It's not a bug if there was undefined code but if you can share sample please send for examination!"
             return
             
